@@ -1,16 +1,12 @@
-const express = require('express');
-const path = require('path')
-const { Telegraf } = require('telegraf');
-const { CookieJar } = require('tough-cookie');
+import express from 'express';
+import path from 'path';
+import { Telegraf } from 'telegraf';
+import fs from 'fs';
+import dotenv from 'dotenv';
 
-const session = require('telegraf/session')
-const Stage = require('telegraf/stage')
-const Markup = require('telegraf/markup')
-const dotenv = require('dotenv')
-const fs = require('fs');
-
-const { getSchedule, getScheduleDetail } = require('./modules/schoolModule.js');
-const { getScore, getScoreTable } = require('./modules/scoreModule.js');
+import { getSchedule, getScheduleDetail } from './modules/schoolModule.js';
+import { getScore, getScoreTable, getSummaryScore } from './modules/scoreModule.js';
+import axios from 'axios';
 
 dotenv.config()
 
@@ -21,9 +17,6 @@ expressApp.use(express.static('static'))
 expressApp.use(express.json());
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-const stage = new Stage([])
-bot.use(session())
-bot.use(stage.middleware())
 
 expressApp.get("/", (req, res) => {
   res.sendFile(path.join(__dirname + '/index.html'));
@@ -40,8 +33,31 @@ bot.command('send', ctx => {
   })
 })
 
-bot.command('school', async ctx => {
+bot.command('chat', async ctx => {
+  // get the chat content (except /chat)
   console.log(ctx.from)
+  const chatContent = ctx.message.text.split(' ').slice(1).join(' ');
+
+  const payload = {
+    "text": chatContent
+  }
+
+  var response = await axios.post('http://127.0.0.1:8000/get-intent/', payload)
+
+  console.log(response.data['intent'])
+
+  if (response.data.intent == 'get_schedule') {
+    getScheduleDetailFromUrl(ctx)
+  }
+  else if (response.data.intent == 'get_score') {
+    getAllSubjectScore(ctx)
+  }
+  else {
+    ctx.reply('Không hiểu ý bạn lắm, bạn có thể nói lại được không?')
+  }
+})
+
+async function getScheduleDetailFromUrl(ctx) {
   const user = process.env.USER;
   const pass = process.env.PASS;
 
@@ -64,32 +80,47 @@ bot.command('school', async ctx => {
   })
 
   console.log("Done get schedule")
+}
+
+bot.command('school', async ctx => {
+  console.log(ctx.from)
+  getScheduleDetailFromUrl(ctx)
 })
 
-bot.command('score', async ctx => {
-
+async function getAllSubjectScore(ctx) {
   const user = process.env.USER;
   const pass = process.env.PASS;
 
   // const score = await getScore("https://ketquahoctap.tdtu.edu.vn/Home/LayHocKy_KetQuaHocTap?mssv=520H0074&namvt=2020&hedaotao=H&time=1694624044804", user, pass);
-  ctx.reply('Chọn học kỳ', {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: 'Học kỳ 1', callback_data: 'semester 1' },
-          { text: 'Học kỳ 2', callback_data: 'semester 2' },
-        ],
-        [
-          { text: 'Học kỳ hè', callback_data: 'semester 3' },
-        ]
-      ]
+
+  const userId = user.split("")
+
+  const url = `https://ketquahoctap.tdtu.edu.vn/Home/LayDiemTongHop?mssv=${user}&namvt=20${userId[1]+userId[2]}&hedaotao=${userId[3]}`;
+
+  console.log("Get summary score url:", url)
+  
+  const summaryScore = await getSummaryScore(url, user, pass);
+
+  let response = "";
+  let i = 0;
+
+  summaryScore.data.forEach((score) => {
+    response += `Tên môn học: ${score.TenMH} - Số tín chỉ: ${score.SoTC} - Điểm trung bình: ${score.DTB} \n`
+    i+=1;
+    if (i == 5) {
+      bot.telegram.sendMessage(ctx.chat.id, response, {
+      })
+      response = "";
+      i = 0;
     }
   })
 
+}
+
+bot.command('score', async ctx => {
+  console.log(ctx.from)
+  getAllSubjectScore(ctx)
 
 });
 
-
-
 bot.launch()
-

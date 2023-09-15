@@ -1,11 +1,11 @@
-const axios = require('axios');
-const wrapper = require('axios-cookiejar-support').wrapper;
-const tough  = require('tough-cookie');
-const cheerio = require('cheerio');
-const fs = require('fs');
+import axios from 'axios';
+import { CookieJar } from 'tough-cookie';
+import { wrapper } from 'axios-cookiejar-support';
+import cheerio from 'cheerio';
+import fs from 'fs';
 
 const client = wrapper(axios.create({
-  jar: new tough.CookieJar(),
+  jar: new CookieJar(),
   headers: {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
@@ -111,4 +111,4 @@ async function getSchedule(url, user, pass) {
   return res;
 }
 
-module.exports = { getSchedule, getScheduleDetail }
+export { getSchedule, getScheduleDetail }

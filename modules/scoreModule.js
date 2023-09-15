@@ -1,9 +1,9 @@
-const axios = require('axios');
-const wrapper = require('axios-cookiejar-support').wrapper;
-const tough = require('tough-cookie');
+import axios from 'axios';
+import { CookieJar } from 'tough-cookie';
+import { wrapper } from 'axios-cookiejar-support';
 
 const client = wrapper(axios.create({
-  jar: new tough.CookieJar(),
+  jar: new CookieJar(),
   headers: {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
@@ -45,4 +45,14 @@ async function getScoreTable(url, user, pass) {
 
 }
 
-module.exports = { getScore, getScoreTable }
+async function getSummaryScore(url, user, pass) {
+  const loginRes = await login(user, pass);
+  await setCookie(loginRes.url);
+
+  const setScoreCookie = await client.get("https://ketquahoctap.tdtu.edu.vn");
+  
+  const res = await client.get(url);
+  return res;
+}
+
+export { getScore, getScoreTable, getSummaryScore }
